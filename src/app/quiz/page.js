@@ -31,6 +31,7 @@ function QuizContent() {
   const [cheatAttempts, setCheatAttempts] = useState(0);
   const [showCheatWarning, setShowCheatWarning] = useState(false);
   const [forceSubmitReason, setForceSubmitReason] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false); // 新增防重複提交狀態
 
   // --- Derived State ---
   const currentQuestion = questions[currentIndex];
@@ -46,6 +47,9 @@ function QuizContent() {
   // --- Business Logic Wrappers ---
   
   const handleSubmitQuiz = useCallback(async (reason = null) => {
+    if (isSubmitting) return; // 防止重複提交
+    setIsSubmitting(true); // 開始提交，設置為 true
+
     const wrongOnes = getWrongQuestions(questions, selectedAnswers);
     if (wrongOnes.length > 0) {
       await saveNewWrongQuestionsToCloud(wrongOnes);
@@ -58,7 +62,8 @@ function QuizContent() {
 
     setForceSubmitReason(reason);
     setIsFinished(true);
-  }, [questions, selectedAnswers]);
+    // 不需要設置 setIsSubmitting(false) 因為會跳轉頁面
+  }, [questions, selectedAnswers, isSubmitting]);
 
   // --- Effects ---
 
@@ -86,7 +91,7 @@ function QuizContent() {
 
   // Countdown Timer
   useEffect(() => {
-    if (loading || isFinished || loadError) return;
+    if (loading || isFinished || loadError || isSubmitting) return; // 提交中禁用計時器
     
     if (timeLeft <= 0) {
       handleSubmitQuiz('因時間到強制交卷');
@@ -94,11 +99,11 @@ function QuizContent() {
     }
     const timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
     return () => clearInterval(timer);
-  }, [loading, isFinished, timeLeft, handleSubmitQuiz, loadError]);
+  }, [loading, isFinished, timeLeft, handleSubmitQuiz, loadError, isSubmitting]);
 
   // Anti-Cheat Monitor
   useEffect(() => {
-    if (isFinished || loading || loadError) return;
+    if (isFinished || loading || loadError || isSubmitting) return; // 提交中禁用防作弊
 
     const cleanup = setupAntiCheatListeners(() => {
       setCheatAttempts(prev => {
@@ -114,18 +119,20 @@ function QuizContent() {
     });
 
     return cleanup;
-  }, [isFinished, loading, handleSubmitQuiz, loadError]);
+  }, [isFinished, loading, handleSubmitQuiz, loadError, isSubmitting]);
 
   // --- Handlers ---
 
   const handleSelect = (optionIndex) => {
-    if (isFinished || showCheatWarning || loading || loadError) return;
+    if (isFinished || showCheatWarning || loading || loadError || isSubmitting) return; // 提交中禁用選取
     const newAnswers = [...selectedAnswers];
     newAnswers[currentIndex] = optionIndex;
     setSelectedAnswers(newAnswers);
   };
 
   const handleNext = () => {
+    if (isSubmitting) return; // 提交中禁用下一題
+
     if (currentIndex < questions.length - 1) {
       setCurrentIndex(currentIndex + 1);
     } else {
@@ -218,7 +225,7 @@ function QuizContent() {
                       <p>您的回答：<span className={isCorrect ? 'text-green-500' : 'text-red-500'}>{selectedIdx !== null ? q.options[selectedIdx] : '未作答'}</span></p>
                       {!isCorrect && <p className="text-green-500">正確解答：{correctOption}</p>}
                     </div>
-                    <div className="mt-4 p-3 rounded-lg bg-white/5 text-xs leading-relaxed opacity-70 break-words">
+                    <div className="mt-4 p-3 rounded-lg bg-white/5 text-sm leading-relaxed opacity-70 break-words">
                       <strong>詳解：</strong>{q.explanation}
                     </div>
                   </div>
@@ -292,7 +299,7 @@ function QuizContent() {
             <button
               key={idx}
               onClick={() => handleSelect(idx)}
-              disabled={isFinished || showCheatWarning}
+              disabled={isFinished || showCheatWarning || isSubmitting} // 提交中禁用選取
               className={`w-full p-5 rounded-2xl text-left transition-all duration-200 apple-button ${
                 selectedAnswers[currentIndex] === idx
                   ? 'bg-accent text-white shadow-lg shadow-accent/20 ring-2 ring-accent ring-offset-4 ring-offset-background'
@@ -312,15 +319,24 @@ function QuizContent() {
       <div className="mt-12 mb-8">
         <button
           onClick={handleNext}
-          disabled={selectedAnswers[currentIndex] === null || isFinished || showCheatWarning}
+          disabled={selectedAnswers[currentIndex] === null || isFinished || showCheatWarning || isSubmitting}
           className={`w-full py-5 rounded-[24px] font-bold text-lg flex items-center justify-center gap-2 transition-all duration-300 ${
-            (selectedAnswers[currentIndex] === null || isFinished || showCheatWarning)
+            (selectedAnswers[currentIndex] === null || isFinished || showCheatWarning || isSubmitting)
               ? 'opacity-20 bg-secondary cursor-not-allowed text-foreground'
               : 'bg-foreground text-background apple-button shadow-xl shadow-black/20'
           }`}
         >
-          {currentIndex === questions.length - 1 ? '交卷' : '下一題'}
-          <ArrowRight size={20} />
+          {isSubmitting ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              計算成績中...
+            </>
+          ) : (
+            <>
+              {currentIndex === questions.length - 1 ? '交卷' : '下一題'}
+              <ArrowRight size={20} />
+            </>
+          )}
         </button>
       </div>
     </main>

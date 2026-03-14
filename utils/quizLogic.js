@@ -72,7 +72,7 @@ export const fetchQuestionsFromSupabase = async () => {
     }
 
     // Shuffle and take 80 questions or all if fewer
-    const shuffled = shuffleQuestions(data).slice(0, 80);
+    const shuffled = shuffleQuestions(data).slice(0, 5);
     return shuffled;
   } catch (error) {
     console.error("Unexpected error in fetchQuestionsFromSupabase:", error.message);

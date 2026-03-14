@@ -10,7 +10,7 @@ import { supabase } from './supabase';
  * Joins with local logic if needed, but primarily relies on DB.
  * Note: Since we only store question_id in wrong_questions table, 
  * we'll need to match them with the full question data.
- * @returns {Promise<Array>} List of question IDs
+ * @returns {Promise<Array>} List of objects containing question_id and error_count
  */
 export const getWrongQuestionsFromCloud = async () => {
   const { data: { user } } = await supabase.auth.getUser();
@@ -18,7 +18,7 @@ export const getWrongQuestionsFromCloud = async () => {
 
   const { data, error } = await supabase
     .from('wrong_questions')
-    .select('question_id')
+    .select('question_id, error_count')
     .eq('user_id', user.id);
 
   if (error) {
@@ -26,7 +26,7 @@ export const getWrongQuestionsFromCloud = async () => {
     return [];
   }
 
-  return data.map(item => item.question_id);
+  return data; // Returns [{question_id, error_count}, ...]
 };
 
 /**
@@ -72,7 +72,7 @@ export const clearWrongBookFromCloud = async () => {
 };
 
 /**
- * Adds new wrong questions to Supabase, avoiding duplicates (handled by DB UNIQUE constraint).
+ * Adds new wrong questions to Supabase, increments error_count if already exists.
  * @param {Array} newWrongQuestions Array of question objects
  */
 export const saveNewWrongQuestionsToCloud = async (newWrongQuestions) => {
@@ -82,17 +82,44 @@ export const saveNewWrongQuestionsToCloud = async (newWrongQuestions) => {
     return;
   }
 
-  const inserts = newWrongQuestions.map(q => ({
-    user_id: user.id,
-    question_id: q.id
-  }));
+  for (const q of newWrongQuestions) {
+    // Check if the question already exists for this user
+    const { data: existing, error: fetchError } = await supabase
+      .from('wrong_questions')
+      .select('id, error_count')
+      .eq('user_id', user.id)
+      .eq('question_id', q.id)
+      .single();
 
-  const { error } = await supabase
-    .from('wrong_questions')
-    .upsert(inserts, { onConflict: 'user_id, question_id' });
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      console.error('DB Error: Error checking existing wrong question:', JSON.stringify(fetchError));
+      continue;
+    }
 
-  if (error) {
-    console.error('DB Error: Error saving wrong questions:', JSON.stringify(error));
+    if (existing) {
+      // If exists, increment error_count
+      const { error: updateError } = await supabase
+        .from('wrong_questions')
+        .update({ error_count: (existing.error_count || 1) + 1 })
+        .eq('id', existing.id);
+      
+      if (updateError) {
+        console.error('DB Error: Error updating error_count:', JSON.stringify(updateError));
+      }
+    } else {
+      // If not exists, insert new record
+      const { error: insertError } = await supabase
+        .from('wrong_questions')
+        .insert({
+          user_id: user.id,
+          question_id: q.id,
+          error_count: 1
+        });
+
+      if (insertError) {
+        console.error('DB Error: Error inserting new wrong question:', JSON.stringify(insertError));
+      }
+    }
   }
 };
 

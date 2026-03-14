@@ -2,9 +2,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { Zap, BookMarked, Settings, User, LogOut, Loader2 } from 'lucide-react'; // 匯入 Lucide Icons
+import { Zap, BookMarked, Loader2 } from 'lucide-react'; // 匯入 Lucide Icons
 import Link from 'next/link'; // 用於導航連結
 import { useRouter } from 'next/navigation'; // 用於程式化導航
+import Navbar from '@/components/Navbar'; // 匯入 Navbar 元件
 import { supabase } from '@/../utils/supabase'; // 匯入 Supabase 客戶端實例
 import { getWrongQuestionsFromCloud, getTodayCorrectQuestionsCount } from '@/../utils/storage'; // 從雲端獲取錯題數量
 
@@ -88,22 +89,6 @@ export default function Home() {
     return () => subscription.unsubscribe();
   }, []); // 移除 router 依賴，避免重複執行
   
-  // 登出處理函式
-  const handleSignOut = async () => {
-    setLoading(true);
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error("Error signing out:", error.message);
-    } else {
-      setSession(null); 
-      setWrongCount(0);
-      setDailyProgress(0); // 進度歸零
-      localStorage.removeItem("last_quiz_date"); // 清除本地記錄，儘管現在主要依賴 DB
-      router.push("/login");
-    }
-    setLoading(false);
-  };
-
   if (loading) {
       return (
           <main className="min-h-screen flex items-center justify-center bg-background">
@@ -121,26 +106,8 @@ export default function Home() {
       <div className="absolute -top-20 -left-20 w-64 h-64 bg-accent/20 rounded-full blur-3xl opacity-50 pointer-events-none" />
       <div className="absolute top-1/2 -right-20 w-64 h-64 bg-blue-400/10 rounded-full blur-3xl opacity-50 pointer-events-none" />
 
-      {/* 標頭區域 */}
-      <div className="w-full flex justify-between items-center mt-8 z-10">
-        <h1 className="text-3xl font-bold tracking-tight">永續發展證照</h1>
-        <div className="flex gap-4">
-          {session ? (
-            <button onClick={handleSignOut} disabled={loading} className="p-2 rounded-full glass-morphism apple-button transition-all duration-200 active:scale-95 disabled:opacity-50">
-              <LogOut size={20} className="text-red-400" />
-            </button>
-          ) : (
-            <Link href="/login" className="cursor-pointer">
-              <div className="p-2 rounded-full glass-morphism apple-button">
-                <User size={20} />
-              </div>
-            </Link>
-          )}
-          <button className="p-2 rounded-full glass-morphism apple-button">
-            <Settings size={20} />
-          </button>
-        </div>
-      </div>
+      {/* 導覽列 */}
+      <Navbar />
 
       {/* 主要操作區域 */}
       <div className="w-full flex flex-col gap-4 mt-12 mb-auto z-10">

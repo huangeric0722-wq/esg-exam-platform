@@ -24,16 +24,24 @@ function WrongBookContent() {
   useEffect(() => {
     async function loadWrongQuestions() {
       setLoading(true);
-      const wrongIds = await getWrongQuestionsFromCloud();
+      const wrongQuestionsWithCount = await getWrongQuestionsFromCloud();
       
-      // Match IDs with full question data from questions.json
-      const matchedQuestions = allQuestionsData.filter(q => wrongIds.includes(q.id));
+      // Match IDs with full question data from questions.json and add error_count
+      const matchedQuestions = allQuestionsData.map(q => {
+        const wrongQ = wrongQuestionsWithCount.find(w => w.question_id === q.id);
+        return wrongQ ? { ...q, error_count: wrongQ.error_count } : null;
+      }).filter(Boolean);
       
       setWrongQuestions(matchedQuestions);
       setLoading(false);
     }
+
     loadWrongQuestions();
   }, []);
+
+  const sortByErrorCount = () => {
+    setWrongQuestions(prev => [...prev].sort((a, b) => b.error_count - a.error_count));
+  };
 
   const handleRemove = async (id) => {
     await removeQuestionFromCloud(id);
@@ -67,13 +75,24 @@ function WrongBookContent() {
           </div>
         </Link>
         <h1 className="text-xl font-bold">雲端錯題本</h1>
-        <button 
-          onClick={() => setShowConfirmClear(true)}
-          disabled={wrongQuestions.length === 0}
-          className={`p-2 rounded-full glass-morphism apple-button ${wrongQuestions.length === 0 ? 'opacity-20' : 'text-red-500'}`}
-        >
-          <Trash2 size={24} />
-        </button>
+        <div className="flex gap-2">
+          <button 
+            onClick={sortByErrorCount}
+            disabled={wrongQuestions.length === 0}
+            className={`p-2 rounded-full glass-morphism apple-button ${wrongQuestions.length === 0 ? 'opacity-20' : ''}`}
+            title="依錯誤次數排序"
+          >
+            <BookOpen size={24} />
+          </button>
+          <button 
+            onClick={() => setShowConfirmClear(true)}
+            disabled={wrongQuestions.length === 0}
+            className={`p-2 rounded-full glass-morphism apple-button ${wrongQuestions.length === 0 ? 'opacity-20' : 'text-red-500'}`}
+            title="清空錯題本"
+          >
+            <Trash2 size={24} />
+          </button>
+        </div>
       </div>
 
       {wrongQuestions.length === 0 ? (
@@ -93,6 +112,7 @@ function WrongBookContent() {
             <div key={q.id} className="p-5 rounded-2xl glass-morphism border border-white/5 animate-fade-in relative group overflow-hidden">
               <div className="flex justify-between items-start mb-4">
                 <span className="text-xs font-bold text-accent px-2 py-1 rounded-md bg-accent/10">ID: {q.id}</span>
+                <span className="text-xs font-medium opacity-60">錯誤次數：{q.error_count || 1} 次</span>
                 <button 
                   onClick={() => handleRemove(q.id)}
                   className="text-xs font-medium text-green-500 flex items-center gap-1 hover:scale-105 transition-transform"
