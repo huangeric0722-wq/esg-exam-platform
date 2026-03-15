@@ -25,7 +25,7 @@
 - [ ] **Task 4.3：全域共用統計 (魔王題庫)**
   - 需求：找出全站使用者最常錯的 TOP 10 題目。
   - 動作：在 Supabase 建立 `global_wrong_stats` View。新增 `/common-mistakes` 頁面顯示排行榜。
-- [ ] **Task 4.4：後台管理與題目擴充 (Admin Role)**
+- [x] **Task 4.4：後台管理與題目擴充 (Admin Role)**
   - 需求：特定帳號可透過網頁批次上傳 JSON 題庫。
   - 動作：建立 `/admin` 頁面，綁定指定 Admin Email 權限，實作大型 textarea 寫入 Supabase。
 

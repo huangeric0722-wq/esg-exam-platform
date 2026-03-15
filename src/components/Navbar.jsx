@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { User, LogOut, Settings, Loader2 } from 'lucide-react';
+import { User, LogOut, Settings, Loader2, Flame } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/../utils/supabase';
@@ -56,6 +56,14 @@ export default function Navbar() {
             <span className="text-xs font-medium opacity-60 hidden sm:inline-block">
               Hi, {user.email}
             </span>
+            <Link href="/common-mistakes">
+              <button 
+                className="p-2 rounded-full glass-morphism apple-button transition-all duration-200 active:scale-95"
+                title="魔王題庫排行榜"
+              >
+                <Flame size={18} className="text-red-400" />
+              </button>
+            </Link>
             <button 
               onClick={handleSignOut} 
               className="p-2 rounded-full glass-morphism apple-button transition-all duration-200 active:scale-95"
@@ -72,7 +80,7 @@ export default function Navbar() {
           </Link>
         )}
         
-        <button className="p-2 rounded-full glass-morphism apple-button" title="設定">
+        <button className="hidden p-2 rounded-full glass-morphism apple-button" title="設定">
           <Settings size={18} />
         </button>
       </div>
