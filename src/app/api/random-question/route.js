@@ -3,7 +3,6 @@ import { NextResponse } from 'next/server'
 
 export async function GET() {
 try {
-// 這裡我們只用 public 的 key，不需要 admin 權限，因為只是要讀取題目
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
@@ -13,33 +12,31 @@ return NextResponse.json({ error: 'Missing Supabase credentials' }, { status: 50
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-// 因為我們要撈隨機一題，Supabase 沒有內建 RAND() 函數，
-// 最簡單暴力的方法是撈出所有題目的 ID，然後隨機選一個
+// 1. 撈出所有題目的 ID
 const { data: ids, error: idError } = await supabase
 .from('questions')
 .select('id')
 
 if (idError) throw idError
-
 if (!ids || ids.length === 0) {
 return NextResponse.json({ error: 'No questions found' }, { status: 404 })
 }
 
-// 隨機選一個 ID
-const randomId = ids[Math.floor(Math.random() * ids.length)].id
+// 2. 將 ID 陣列洗牌 (Shuffle) 並取出前 3 個
+const shuffledIds = ids.sort(() => 0.5 - Math.random()).slice(0, 3).map(i => i.id)
 
-// 用這個 ID 去撈完整的題目資訊
-const { data: question, error: qError } = await supabase
+// 3. 用這 3 個 ID 去撈完整的題目資訊 (記得加上 answer!)
+const { data: questions, error: qError } = await supabase
 .from('questions')
-.select('id, question, options, category, explanation')
-.eq('id', randomId)
-.single()
+.select('id, question, options, answer, category, explanation')
+.in('id', shuffledIds)
 
 if (qError) throw qError
 
+// 回傳這 3 題的陣列
 return NextResponse.json({
 success: true,
-data: question
+data: questions // 這裡的 data 現在是一個 Array
 })
 
 } catch (error) {
