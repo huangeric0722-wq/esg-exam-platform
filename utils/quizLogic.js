@@ -26,8 +26,7 @@ export const calculateScore = (questions, selectedAnswers) => {
   return selectedAnswers.reduce((acc, curr, idx) => {
     if (curr === null) return acc;
     const q = questions[idx];
-    const selectedOption = q.options[curr];
-    return selectedOption.startsWith(q.answer) ? acc + 1 : acc;
+    return curr === q.answer ? acc + 1 : acc;
   }, 0);
 };
 
@@ -41,8 +40,7 @@ export const getWrongQuestions = (questions, selectedAnswers) => {
   return questions.filter((q, idx) => {
     const selectedIdx = selectedAnswers[idx];
     if (selectedIdx === null) return true; // Unanswered is wrong
-    const selectedOption = q.options[selectedIdx];
-    return !selectedOption.startsWith(q.answer);
+    return selectedIdx !== q.answer;
   });
 };
 
@@ -72,7 +70,7 @@ export const fetchQuestionsFromSupabase = async () => {
     }
 
     // Shuffle and take 80 questions or all if fewer
-    const shuffled = shuffleQuestions(data).slice(0, 80);
+    const shuffled = shuffleQuestions(data).slice(0, 5);
     return shuffled;
   } catch (error) {
     console.error("Unexpected error in fetchQuestionsFromSupabase:", error.message);

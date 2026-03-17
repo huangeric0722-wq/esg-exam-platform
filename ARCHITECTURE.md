@@ -38,6 +38,3 @@
 3.  **錯誤處理與防護網 (Error Handling)**
     *   所有的非同步操作 (如 Supabase SDK) 必須使用 `try...catch` 包覆。
     *   發生錯誤時，不得出現白畫面，必須在 UI 渲染友善的錯誤提示 (如 Toast 或 Alert)。
-
-## 🚀 當前發展 (Phase 4)
-即將擴充個人錯題計數器 (`error_count`)、全站常錯題庫視圖 (`global_wrong_stats` View)，以及基於指定信箱的管理員後台 (`/admin`)。

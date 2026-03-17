@@ -212,8 +212,8 @@ function QuizContent() {
         <div className="space-y-6 mb-12 text-foreground">
           {questions.map((q, idx) => {
             const selectedIdx = selectedAnswers[idx];
-            const isCorrect = selectedIdx !== null && q.options[selectedIdx].startsWith(q.answer);
-            const correctOption = q.options.find(opt => opt.startsWith(q.answer));
+            const isCorrect = selectedIdx !== null && selectedIdx === q.answer;
+            const correctOption = q.options[q.answer];
             
             return (
               <div key={q.id || idx} className={`p-5 rounded-2xl border ${isCorrect ? 'border-green-500/30 bg-green-500/5' : 'border-red-500/30 bg-red-500/5'}`}>

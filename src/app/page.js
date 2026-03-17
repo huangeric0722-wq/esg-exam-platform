@@ -2,12 +2,14 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { Zap, BookMarked, Loader2 } from 'lucide-react'; // 匯入 Lucide Icons
+import { Zap, BookMarked, Loader2, BarChart2 } from 'lucide-react'; // 匯入 Lucide Icons 和 BarChart2
 import Link from 'next/link'; // 用於導航連結
 import { useRouter } from 'next/navigation'; // 用於程式化導航
 import Navbar from '@/components/Navbar'; // 匯入 Navbar 元件
+import RadarChart from '@/components/RadarChart'; // 匯入雷達圖元件
 import { supabase } from '@/../utils/supabase'; // 匯入 Supabase 客戶端實例
 import { getWrongQuestionsFromCloud, getTodayCorrectQuestionsCount } from '@/../utils/storage'; // 從雲端獲取錯題數量
+import { fetchRadarData } from '@/../utils/stats'; // 匯入雷達數據獲取邏輯
 
 const DAILY_GOAL = 80; // 每日目標題數
 
@@ -15,14 +17,17 @@ export default function Home() {
   const [wrongCount, setWrongCount] = useState(0); // 錯題本中的題目數量
   const [session, setSession] = useState(null); // 當前 Supabase Session 狀態
   const [dailyProgress, setDailyProgress] = useState(0); // 今日測驗進度
+  const [radarData, setRadarData] = useState([]); // 雷達圖數據
   const [loading, setLoading] = useState(true); // 初始載入狀態
+  const [statsLoading, setStatsLoading] = useState(false); // 數據載入狀態
+  const [showRadarChart, setShowRadarChart] = useState(false); // 控制雷達圖顯示/隱藏的狀態
   const router = useRouter(); // 路由器實例
   
   // --- 事件處理函式 ---
   
-  // 監聽測驗完成事件，用於更新每日進度
+  // 監聽測驗完成事件，用於更新每日進度與雷達圖
   useEffect(() => {
-    const handleQuizCompletion = (event) => {
+    const handleQuizCompletion = async (event) => {
         if (event.detail && event.detail.count) {
             const questionsCompleted = event.detail.count;
             
@@ -41,12 +46,18 @@ export default function Home() {
             localStorage.setItem("daily_quiz_progress", newProgress.toString());
             localStorage.setItem("last_quiz_date", today);
             setDailyProgress(newProgress);
+
+            // 更新雷達圖數據
+            if (session?.user?.id) {
+              const data = await fetchRadarData(session.user.id);
+              setRadarData(data);
+            }
         }
     };
 
     window.addEventListener('quizCompleted', handleQuizCompletion);
     return () => window.removeEventListener('quizCompleted', handleQuizCompletion);
-  }, []);
+  }, [session]);
 
   // 載入資料與認證狀態
   useEffect(() => {
@@ -55,6 +66,7 @@ export default function Home() {
         setSession(supabaseSession);
         
         if (supabaseSession) {
+            setStatsLoading(true);
             // 載入錯題數
             const wrongIds = await getWrongQuestionsFromCloud();
             setWrongCount(wrongIds.length);
@@ -62,9 +74,15 @@ export default function Home() {
             // 載入今日答對數
             const todayProgress = await getTodayCorrectQuestionsCount();
             setDailyProgress(todayProgress);
+
+            // 載入雷達圖數據
+            const radar = await fetchRadarData(supabaseSession.user.id);
+            setRadarData(radar);
+            setStatsLoading(false);
         } else {
             setWrongCount(0);
             setDailyProgress(0);
+            setRadarData([]);
         }
 
         setLoading(false);
@@ -75,17 +93,17 @@ export default function Home() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
         setSession(session);
         if (session) {
-            // 登入後重新獲取錯題數和進度
+            // 登入後重新獲取資料
             getWrongQuestionsFromCloud().then(ids => setWrongCount(ids.length));
             getTodayCorrectQuestionsCount().then(count => setDailyProgress(count));
+            fetchRadarData(session.user.id).then(data => setRadarData(data));
         } else {
             setWrongCount(0);
             setDailyProgress(0);
+            setRadarData([]);
         }
     });
 
-    // 移除本地時間進度檢查，因為現在直接從 DB 讀取今日進度
-    
     return () => subscription.unsubscribe();
   }, []); // 移除 router 依賴，避免重複執行
   
@@ -134,7 +152,6 @@ export default function Home() {
             <Zap size={32} fill="currentColor" />
           </div>
         </Link>
-
         <Link href="/wrong-book" className="w-full">
           <div className="w-full flex items-center justify-between p-6 rounded-[24px] glass-morphism apple-button cursor-pointer relative">
             <div className="flex flex-col items-start text-left text-foreground">
@@ -156,6 +173,38 @@ export default function Home() {
             </div>
           </div>
         </Link>
+
+        {/* 能力雷達圖區塊 - 點擊展開模式 */}
+        {session && (
+          <div className="w-full flex flex-col gap-2">
+            <button
+              onClick={() => setShowRadarChart(!showRadarChart)}
+              className="w-full flex items-center justify-between p-6 rounded-[24px] glass-morphism apple-button cursor-pointer"
+            >
+              <div className="flex flex-col items-start text-left text-foreground">
+                <span className="text-xl font-bold">能力雷達圖</span>
+                <span className="text-sm opacity-60">
+                  {showRadarChart ? '點擊收合' : '點擊展開，查看您的能力分佈'}
+                </span>
+              </div>
+              <BarChart2 
+                size={32} 
+                className={`text-accent transition-transform duration-300 ${showRadarChart ? 'rotate-180' : ''}`} 
+              />
+            </button>
+
+            <div className={`w-full h-80 transition-all duration-500 animate-in fade-in zoom-in-95 slide-in-from-top-4 ${showRadarChart ? 'block' : 'hidden'}`}>
+                {statsLoading ? (
+                  <div className="w-full h-full bg-zinc-900/40 backdrop-blur-xl rounded-3xl border border-white/5 p-6 flex items-center justify-center">
+                    <Loader2 className="w-8 h-8 text-accent animate-spin" />
+                  </div>
+                ) : (
+                  <RadarChart data={radarData} />
+                )}
+              </div>
+          </div>
+        )}
+
       </div>
 
       <div className="w-full mb-8 text-center opacity-40 text-xs">
